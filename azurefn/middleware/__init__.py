@@ -20,15 +20,27 @@ CONFIG_FILE = "/tmp/bot_config.json"
 
 
 
-os.system(f"cp {MAIN_FILE} {CONFIG_FILE}")
 # Blob Storage functions
 # def get_blob_service_client():
 #     return BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
 
-def load_config():
+def get_file():
+    
     try:
+        logger.info(f"Trying to read the tmp file:{CONFIG_FILE}")
         with open(CONFIG_FILE, "r") as file:
             return json.load(file)
+
+
+    except:
+        logging.info(f"Coping the main file to tmp blob")
+        os.system(f"cp {MAIN_FILE} {CONFIG_FILE}")
+    
+
+def load_config():
+    try:
+        file = get_file()
+        return file
     except FileNotFoundError:
         return {"admins": [], "group_id": None, "channel_id": None}
 
