@@ -13,28 +13,26 @@ logger = logging.getLogger(__name__)
 # Configuration
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 SUPER_ADMIN_ID = int(os.environ["SUPER_ADMIN_ID"])
-STORAGE_CONNECTION_STRING = os.environ["AzureWebJobsStorage"]
-CONTAINER_NAME = "bot-config"
-BLOB_NAME = "bot_config.json"
+# STORAGE_CONNECTION_STRING = os.environ["AzureWebJobsStorage"]
+# CONTAINER_NAME = "bot-config"
+CONFIG_FILE = "bot_config.json"
 
 # Blob Storage functions
-def get_blob_service_client():
-    return BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
+# def get_blob_service_client():
+#     return BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
 
 def load_config():
-    blob_service_client = get_blob_service_client()
-    blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=BLOB_NAME)
     try:
-        config_data = blob_client.download_blob().readall()
-        return json.loads(config_data)
-    except Exception as e:
-        logger.error(f"Error loading config: {str(e)}")
+        with open(CONFIG_FILE, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
         return {"admins": [], "group_id": None, "channel_id": None}
 
+# Save configuration to file
 def save_config(config):
-    blob_service_client = get_blob_service_client()
-    blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=BLOB_NAME)
-    blob_client.upload_blob(json.dumps(config), overwrite=True)
+    with open(CONFIG_FILE, "a") as file:
+        json.dump(config, file)
+
 
 # Helper function
 def is_authorized(user_id):
