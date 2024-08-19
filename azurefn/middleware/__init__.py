@@ -1,18 +1,18 @@
+import json
 import logging
+import os
 
 import azure.functions as func
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
-import json
-import logging
-from telegram import Update, Chat
-from telegram.error import TelegramError
-from telegram.ext import ContextTypes
-from telegram import Update, Chat
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
-import json
-import logging
+from telegram import Update, Bot, Chat
 
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+
+from telegram.ext import ContextTypes
+
+def log_info(message):
+    logging.info(message)
+
+# Replace all log_info() calls with log_info()
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -160,15 +160,15 @@ async def copy_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id if update.effective_chat else None
 
-    logger.info(f"Message received from user {user_id} in chat {chat_id}")
+    log_info(f"Message received from user {user_id} in chat {chat_id}")
 
     # Check if the message is from the admin who registered the IDs
     if user_id != config.get("registering_admin"):
-        logger.info(f"Message not from the registering admin. Ignoring.")
+        log_info(f"Message not from the registering admin. Ignoring.")
         return
 
     if chat_id != config["group_id"]:
-        logger.info(f"Message not in registered group. Received in {chat_id}, expected {config['group_id']}")
+        log_info(f"Message not in registered group. Received in {chat_id}, expected {config['group_id']}")
         return
 
     if not config["channel_id"]:
@@ -179,7 +179,7 @@ async def copy_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning("Update has no message")
         return
 
-    logger.info(f"Attempting to send message to channel {config['channel_id']}")
+    log_info(f"Attempting to send message to channel {config['channel_id']}")
     try:
         # Get the original message text
         original_text = update.message.text
@@ -189,12 +189,12 @@ async def copy_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=config["channel_id"],
             text=original_text
         )
-        logger.info(f"Message successfully sent to channel {config['channel_id']}")
+        log_info(f"Message successfully sent to channel {config['channel_id']}")
     except Exception as e:
         logger.error(f"Error sending message to channel: {str(e)}")
 
     # Log the message details
-    logger.info(f"Message details: {update.message.to_dict()}")
+    log_info(f"Message details: {update.message.to_dict()}")
 
 async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
