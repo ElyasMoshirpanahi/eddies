@@ -4,3 +4,4 @@
 
 azure-functions
 python-telegram-bot==20.3
+azure-storage-blob
