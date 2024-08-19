@@ -15,8 +15,12 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 SUPER_ADMIN_ID = int(os.environ["SUPER_ADMIN_ID"])
 # STORAGE_CONNECTION_STRING = os.environ["AzureWebJobsStorage"]
 # CONTAINER_NAME = "bot-config"
-CONFIG_FILE = "bot_config.json"
+MAIN_FILE   = "bot_config.json"
+CONFIG_FILE = "/tmp/bot_config.json"
 
+
+
+os.system(f"cp {MAIN_FILE} {CONFIG_FILE}")
 # Blob Storage functions
 # def get_blob_service_client():
 #     return BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
