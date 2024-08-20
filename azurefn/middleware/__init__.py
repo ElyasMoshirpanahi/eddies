@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 SUPER_ADMIN_ID = int(os.environ["SUPER_ADMIN_ID"])
 MONGODB_CONNECTION_STRING = os.environ["MONGODB_CONNECTION_STRING"]
+
 # MongoDB setup
 client = MongoClient(MONGODB_CONNECTION_STRING)
 db = client['telegram_bot_db']
