@@ -2,9 +2,8 @@ import logging
 import azure.functions as func
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-import json
 import os
-from azure.storage.blob import BlobServiceClient
+from pymongo import MongoClient
 
 # Enable logging
 logging.basicConfig(level=logging.INFO)
@@ -13,47 +12,26 @@ logger = logging.getLogger(__name__)
 # Configuration
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 SUPER_ADMIN_ID = int(os.environ["SUPER_ADMIN_ID"])
-# STORAGE_CONNECTION_STRING = os.environ["AzureWebJobsStorage"]
-# CONTAINER_NAME = "bot-config"
-MAIN_FILE   = "bot_config.json"
-CONFIG_FILE = "/tmp/bot_config.json"
+MONGODB_CONNECTION_STRING = os.environ["MONGODB_CONNECTION_STRING"]
+# MongoDB setup
+client = MongoClient(MONGODB_CONNECTION_STRING)
+db = client['telegram_bot_db']
+admin_collection = db['admins']
 
-
-
-# Blob Storage functions
-# def get_blob_service_client():
-#     return BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
-
-def get_file():
-    
-    try:
-        logger.info(f"Trying to read the tmp file:{CONFIG_FILE}")
-        with open(CONFIG_FILE, "r") as file:
-            return json.load(file)
-
-
-    except:
-        logging.info(f"Coping the main file to tmp blob")
-        os.system(f"cp {MAIN_FILE} {CONFIG_FILE}")
-    
-
-def load_config():
-    try:
-        file = get_file()
-        return file
-    except FileNotFoundError:
-        return {"admins": [], "group_id": None, "channel_id": None}
-
-# Save configuration to file
-def save_config(config):
-    with open(CONFIG_FILE, "a") as file:
-        json.dump(config, file)
-
-
-# Helper function
+# Helper functions
 def is_authorized(user_id):
-    config = load_config()
-    return user_id == SUPER_ADMIN_ID or user_id in config["admins"]
+    return admin_collection.find_one({"admin": user_id}) is not None
+
+def get_admin_data(user_id):
+    return admin_collection.find_one({"admin": user_id})
+
+def save_admin_data(user_id, group_id=None, channel_id=None):
+    admin_collection.update_one(
+        {"admin": user_id},
+        {"$set": {"group_id": group_id, "channel_id": channel_id}},
+        upsert=True
+    )
+
 
 # Command handlers
 async def start(update: Update, context):
@@ -97,17 +75,15 @@ async def register_admin(update: Update, context):
         return
 
     new_admin_id = int(context.args[0])
-    config = load_config()
-
-    if new_admin_id not in config["admins"]:
-        config["admins"].append(new_admin_id)
-        save_config(config)
+    if get_admin_data(new_admin_id) is None:
+        save_admin_data(new_admin_id)
         await update.message.reply_text(f"Admin with ID {new_admin_id} has been registered.")
     else:
         await update.message.reply_text(f"Admin with ID {new_admin_id} is already registered.")
 
 async def register_ids(update: Update, context):
-    if not is_authorized(update.effective_user.id):
+    user_id = update.effective_user.id
+    if not is_authorized(user_id):
         await update.message.reply_text("شما مجاز به استفاده ی این دستور نیستید.")
         return
 
@@ -116,46 +92,45 @@ async def register_ids(update: Update, context):
         return
 
     group_id, channel_id = map(int, context.args)
-    config = load_config()
-    config["group_id"] = group_id
-    config["channel_id"] = channel_id
-    config["registering_admin"] = update.effective_user.id
-    save_config(config)
-
+    save_admin_data(user_id, group_id, channel_id)
     await update.message.reply_text("Group ID and Channel ID have been registered.")
 
 async def check_config(update: Update, context):
-    if not is_authorized(update.effective_user.id):
+    user_id = update.effective_user.id
+    if not is_authorized(user_id):
         await update.message.reply_text("شما مجاز به استفاده ی این دستور نیستید.")
         return
 
-    config = load_config()
-    config_str = f"تنظیمات کنونی :\n"
-    config_str += f"ادمین ها: {config['admins']}\n"
-    config_str += f"ایدی گروه: {config['group_id']}\n"
-    config_str += f"ایدی کانال: {config['channel_id']}\n"
-    config_str += f"ایدی ادمین ها: {config.get('registering_admin', 'Not set')}\n"
+    admin_data = get_admin_data(user_id)
+    if admin_data:
+        config_str = f"تنظیمات کنونی :\n"
+        config_str += f"ایدی ادمین: {user_id}\n"
+        config_str += f"ایدی گروه: {admin_data.get('group_id', 'Not set')}\n"
+        config_str += f"ایدی کانال: {admin_data.get('channel_id', 'Not set')}\n"
+    else:
+        config_str = "No configuration found for this admin."
 
     await update.message.reply_text(config_str)
 
 async def copy_to_channel(update: Update, context):
-    config = load_config()
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+    admin_data = get_admin_data(user_id)
 
-    if user_id != config.get("registering_admin") or chat_id != config["group_id"]:
+    if admin_data is None or chat_id != admin_data.get('group_id'):
         return
 
-    if not config["channel_id"] or not update.message:
+    channel_id = admin_data.get('channel_id')
+    if not channel_id or not update.message:
         return
 
     try:
         original_text = update.message.text
         await context.bot.send_message(
-            chat_id=config["channel_id"],
+            chat_id=channel_id,
             text=original_text
         )
-        logger.info(f"Message successfully sent to channel {config['channel_id']}")
+        logger.info(f"Message successfully sent to channel {channel_id}")
     except Exception as e:
         logger.error(f"Error sending message to channel: {str(e)}")
 
